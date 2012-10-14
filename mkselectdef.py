@@ -3,25 +3,39 @@
 """
 Mugen select.def file creator with template support.
 
+
+Features
+--------
+
+The script will search through a folder for characters and add them to a
+new select.def file.  It will also search through stages and add them as well.
+
+Template Support:
+    The script can read in an existing select.def and add characters in the
+    "randomselect" spots.
+
+
+
+Rationale
+---------
+
+I have used this script to create massive screenpacks and to organize 6 gigs of
+mugen characters. 
+
+
 Templates
 ---------
 
 A "template" is simply a select.def file that this script will use to create
 a new copy that includes new characters.
 
+:: The template must be named "template.def"
+
 By default, the script will replace any lines that begin with "randomselect"
 with a new line that defines a new character.
 
 I have used this template system to quickly add characters to screenpacks that
 have complex layouts.
-
-
-Geometry (Advanced)
--------------------
-
-The script is capable of creating new select.def files without a template.
-By defining a geometry, the script will be able to create a layout that doesn't
-have overlapping tiles or sprites.
 
 
 Python Support
@@ -34,61 +48,28 @@ This script was developed and tested with python 2.7.3 on OS X.
 leif theden, 2012
 """
 
-import os, re, glob, collections, argparse
-import pygame
+import os, re, glob, collections
 
 
-# give the script friendly argument procesing
-parser = argparse.ArgumentParser()
-
-parser.add_argument('-o', metavar='output',
-                    help='name of the config file to be written',
-                    type=str,
-                    default='select.def')
-
-parser.add_argument('-t', metavar='template',
-                    help='name of template file',
-                    type=str,
-                    default='template.def')
-
-parser.add_argument('-f',
-                    help='force characters to be added even if not enough space',
-                    action='store_true',
-                    default=False)
-
-parser.add_argument('characters', metavar='char', type=str, nargs='+',
-                    help='name of folder to scan for characters')
-
-
-settings = parser.parse_args()
-
-layout = True
-
-rows = 70
-columns = 53
-spacing = 1
-
-layout_rects = []
-layout_rects.append(pygame.Rect(0,0,21,21))
-layout_rects.append(pygame.Rect(30,20,21,21))
-
+# =============================================================================
+#  OPTIONS
 
 # modify this line to change how characters are added to template
 character_line = "{0},,order=,music=,includestage=0;{1}\r\n"
-#character_line = "{0},,includestage=0;{1}\r\n"
 
-
-# if set, then characters will be added to the screenpack even if there is
-# not enough room.
+# if set, then characters will be added even if there is not enough room.
 force_extra_characters = True
 
-debugmsg_overfilled = ";below are extra characters that will not fit in screenpack"
-
+# name of mugen folders
 char_dir = "chars"
 data_dir = "data"
 music_dir = "sound"
 stage_dir = "stages"
 
+#
+# =============================================================================
+
+debugmsg_overfilled = ";below are extra characters that will not fit in screenpack"
 characters_header = "[Characters]"
 stages_header = "[ExtraStages]"
 
@@ -96,13 +77,8 @@ name_regex = re.compile("name\s*=.*?\"(.*?)\"", re.I)
 strip_regex = re.compile('[\W_]+')
 Character = collections.namedtuple('Character', ['name', 'chardef', 'path'])
 
+count = 0
 
-def check_placement(pos):
-    rect = pygame.Rect(pos, (1, 1))
-    if rect.collidelist(layout_rects) >= 0:
-        return False
-    else:
-        return True
 
 def glob_chars(path):
     for name in os.listdir(path):
@@ -133,13 +109,18 @@ def parse_def(filename):
     except:
         return {}
 
-
 def write_character(fh, character):
+    global count
+
+    count += 1
+
     name, chardef, path = character
     name = strip_regex.sub('', name)
+
+    print "Adding character: {0} ({1})".format(name, path)
+
     basename = os.path.basename(path)
     fh.write(character_line.format(basename, basename))
-
 
 def get_characters(path):
     for char_path in glob_chars(path):
@@ -149,58 +130,15 @@ def get_characters(path):
                 yield Character(d['name'], char_def, char_path)
             except KeyError:
                 pass
+
+
+
     
-x = 0
-y = 0
-count = 0
-
-def write_layout(fh, character):
-    global x
-    global y
-    global count
-
-    # we have a new character, figure out how to add it
-    if layout:
-        ok = check_placement((x, y))
-        if ok:
-            x += 1
-            if x >= columns-1:
-                y += 1
-                x = 0
-                print "."
-            else:
-                print ".",
-
-        else:
-            while not ok:
-                x += 1
-                if x >= columns-1:
-                    y += 1
-                    x = 0
-                    print "X"
-                else:
-                    print "X",
-
-                ok = check_placement((x, y))
-                fh.write("blank\r\n")
-
-        write_character(fh, character)
-
-    elif line[:12] == "randomselect":
-        write_character(fh, next(characters))
-
-    count += 1
-
 if __name__ == "__main__":
     new_config = open("select.def", "w")
-    new_config.write("{0}\r\n".format(characters_header))
-
     characters = get_characters(char_dir)
 
-    write_layout(new_config, Character('randomselect', '', 'randomselect'))
-
-
-    # fill in the the characters
+    # fill in the characters
     with open("template.def") as fh:
         line = fh.readline()
         has_characters = True
@@ -213,7 +151,7 @@ if __name__ == "__main__":
                 if force_extra_characters:
                     new_config.write("{0}\r\n".format(debugmsg_overfilled))
                     for character in characters:
-                        write_layout(new_config, character)
+                        write_character(new_config, character)
 
                     new_config.write("\r\n")
 
@@ -234,17 +172,28 @@ if __name__ == "__main__":
 
                 continue
 
-            # get the next template character to add to the select.dat file
+            # see if we have a open (randomselect) space
+            randomselect = False
             try:
-                character = next(characters)
-            except StopIteration:
-                has_characters = False
-                new_config.write("{0}\r\n".format(line))
+                if line[:12].lower() == 'randomselect':
+                    randomselect = True                    
+            except IndexError:
+                pass
+
+            if randomselect:
+                # get the next template character to add to the select.dat file
+                try:
+                    character = next(characters)
+                except StopIteration:
+                    has_characters = False
+                    new_config.write("{0}\r\n".format(line))
+                else:
+                    write_character(new_config, character)
             else:
-                write_layout(new_config, character)
+                new_config.write("{0}\r\n".format(line))
+
 
 
             line = fh.readline()
 
-print
-print count
+print "\nAdded {0} characters.".format(count)
