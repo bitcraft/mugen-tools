@@ -15,12 +15,26 @@ Template Support:
     "randomselect" spots.
 
 
+Usage
+-----
+
+* Copy this file into your MUGEN folder.
+* Make a copy of select.def and move it to your MUGEN folder
+* Rename the copy to "template.def"
+
+* Run mkselectdef.py
+
+mkselectdef.py will scan your chars folder and add any character it finds.
+A new select.def file will be created in your MUGEN folder.
+
+*** NOTE: duplicates are not checked ***
+
 
 Rationale
 ---------
 
 I have used this script to create massive screenpacks and to organize 6 gigs of
-mugen characters. 
+mugen characters.  Existing tools were too complex or buggy. 
 
 
 Templates
@@ -38,6 +52,20 @@ I have used this template system to quickly add characters to screenpacks that
 have complex layouts.
 
 
+Limitations
+-----------
+
+This script does not check for duplicates and is not aware of any extra options
+that may be needed for the screen, such as 'order', 'music', or 'includestage'.
+
+
+Customization
+-------------
+
+This script includes a few variables that you may modify.  Look under
+"OPTIONS" below.
+
+
 Python Support
 --------------
 
@@ -46,6 +74,7 @@ This script was developed and tested with python 2.7.3 on OS X.
 
 
 leif theden, 2012
+public domain
 """
 
 import os, re, glob, collections
