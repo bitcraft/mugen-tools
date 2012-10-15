@@ -10,6 +10,10 @@ Features
 The script will search through a folder for characters and add them to a
 new select.def file.  It will also search through stages and add them as well.
 
+Characters will be grouped inside the select.def file by the subdirectory
+they are in.  For example, characters in a "Street Fighter" folder will all
+be together.  Headers are written in the file when a new group is started.
+
 Template Support:
     The script can read in an existing select.def and add characters in the
     "randomselect" spots.
@@ -84,7 +88,7 @@ import os, re, glob, collections
 #  OPTIONS
 
 # modify this line to change how characters are added to template
-character_line = "{0},,order=,music=,includestage=0;{1}\r\n"
+character_line = "{0[path]}\r\n"
 
 # if set, then characters will be added even if there is not enough room.
 force_extra_characters = True
@@ -102,65 +106,96 @@ debugmsg_overfilled = ";below are extra characters that will not fit in screenpa
 characters_header = "[Characters]"
 stages_header = "[ExtraStages]"
 
-name_regex = re.compile("name\s*=.*?\"(.*?)\"", re.I)
+name_regex = re.compile("name\s*?=\s*?\"(.*?)\"", re.I)
 strip_regex = re.compile('[\W_]+')
-Character = collections.namedtuple('Character', ['name', 'chardef', 'path'])
+basename_regex = re.compile(char_dir)
+Character = collections.namedtuple('Character', ['name', 'path'])
 
 count = 0
+parent = None
 
 
-def glob_chars(path):
-    for name in os.listdir(path):
-        new_path = os.path.join(path, name)
-        if os.path.isdir(new_path):
-            yield new_path
+
+def parse_def(filename):
+    try:
+        fh = open(filename)
+    except:
+        return {}
+
+    d = {}
+    line = fh.readline()
+    while not line == "":
+        match = name_regex.match(line)
+        if match:
+            name = match.groups()[0]
+            if name != "":
+                d['name'] = name
+
+        line = fh.readline()
+
+    return d
+
+def write_character(fh, character):
+    global count
+    global parent
+
+    count += 1
+
+    name, path = character
+    name = strip_regex.sub('', name)
+
+    dirname = os.path.dirname(path)
+    this_parent = os.path.dirname(dirname)
+
+    if not this_parent == parent:
+        parent = this_parent
+        bar = "=" * (80 - len(this_parent) - 11)
+        fh.write("\r\n; {0}\r\n".format("=" * 78))
+        fh.write("; Section {0} {1}\r\n\r\n".format(this_parent, bar))
+
+    basename = os.path.basename(path)
+    fh.write(character_line.format(character._asdict()))
+
 
 def glob_defs(path):
     defs = glob.glob("{0}/*def".format(path))
     return defs
 
-def parse_def(filename):
-    d = {}
-    try:
-        with open(filename) as fh:
-            line = fh.readline()
-            while not line == "":
-                match = name_regex.match(line)
-                if match:
-                    name = match.groups()[0]
-                    if name != "":
-                        d['name'] = name
+def get_characters(root):
+    def glob_defs(filenames):
+        return [i for i in filenames if i[-3:].lower() == "def"]
 
-                line = fh.readline()
+    # glob the characters and group by subdirectory
+    def glob_chars(path):
+        pushback = []
+        
+        paths = [os.path.join(path, i) for i in os.listdir(path)]
+        dirnames = [i for i in paths if os.path.isdir(i)]
+        dirnames.reverse()
 
-        return d
+        while dirnames:
+            path = dirnames.pop()
+            defs = glob_defs(os.listdir(path))
+            paths = [os.path.join(path, i) for i in os.listdir(path)]
+            subdirs = [i for i in paths if os.path.isdir(i)]
 
-    except:
-        return {}
+            if subdirs:
+                pushback.append(path)
 
-def write_character(fh, character):
-    global count
+            while defs:
+                yield os.path.join(path, defs.pop())
 
-    count += 1
+        while pushback:
+            path = pushback.pop()
+            for char in glob_chars(path):
+                yield char
 
-    name, chardef, path = character
-    name = strip_regex.sub('', name)
-
-    print "Adding character: {0} ({1})".format(name, path)
-
-    basename = os.path.basename(path)
-    fh.write(character_line.format(basename, basename))
-
-def get_characters(path):
-    for char_path in glob_chars(path):
-        for char_def in glob_defs(char_path):
-            d = parse_def(char_def)
-            try:
-                yield Character(d['name'], char_def, char_path)
-            except KeyError:
-                pass
-
-
+    for path in glob_chars(root):
+        d = parse_def(path)
+        try:
+            yield Character(d['name'], path)
+        except KeyError:
+            pass
 
     
 if __name__ == "__main__":
@@ -225,4 +260,4 @@ if __name__ == "__main__":
 
             line = fh.readline()
 
-print "\nAdded {0} characters.".format(count)
+print "Added {0} characters.".format(count)
