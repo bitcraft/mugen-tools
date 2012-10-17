@@ -3,8 +3,10 @@
 """
 SSF Extract for python
 
-This utility will read a Elecbyte SFF file (version 1.01 & 2) and write
-all of the images to the current directory.
+This utility will read a Elecbyte SFF file (version 1.01) and write the
+portrait to the current folder.
+
+** this is just a test of the library, not meant to be a real tool, yet.
 
 
 leif.theden@gmail.com
@@ -15,21 +17,17 @@ from PIL import Image
 from StringIO import StringIO
 from libmugen import sff
 
-filename = 'dc.sff'
+filename = 'XP.sff'
 
-fh = open(filename, 'rb')
-
-header = sff.sff_header1.parse(fh.read(512))
-fh.seek(header.next_subfile)
-subfile = sff.sff_subfile_header.parse(fh.read(32))
+header = sff.sff1_header.parse(fh.read())
 
 while subfile:
     try:
         fh.seek(subfile.next_subfile)
-        subfile = sff.sff_subfile_header.parse(fh.read(32))
+        subfile = sff.sff1_subfile_header.parse(fh.read(32))
     except:
         break
 
-    if subfile.groupno == 9000 and subfile.imageno == 1:
+    if subfile.groupno == 9000 and subfile.imageno == 0:
         image = Image.open(StringIO(fh.read(subfile.length)))
         image.save("portrait.png") 

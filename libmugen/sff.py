@@ -18,7 +18,7 @@ public domain
 
 from construct import Struct, ULInt8, ULInt16, ULInt32, String, Padding, \
 Adapter, Sequence, Byte, Enum, OnDemandPointer, Array, Rename, Switch, Pass, \
-Pointer, String, Value
+Pointer, String, Value, OnDemand, GreedyRange
 
 from StringIO import StringIO
 
@@ -38,25 +38,6 @@ rle8pixel = RunLengthAdapter(
 )
 
 
-
-sff1_header = Struct('ssf header 1.01',
-    String('signature', 12),
-    ULInt8('verhi'),
-    ULInt8('verlo1'),
-    ULInt8('verlo2'),
-    ULInt8('verlo3'),
-    ULInt32('group_total'),
-    ULInt32('image_total'),
-    ULInt32('next_subfile'),
-    ULInt32('subfile header length'),
-    ULInt8('palette type'),
-    ULInt8('reserved0'),
-    ULInt8('reserved1'),
-    ULInt8('reserved2'),
-    Padding(476)
-)
-
-
 sff1_subfile_header = Struct('sff subfile header 1.01',
     ULInt32('next_subfile'),
     ULInt32('length'),
@@ -67,11 +48,35 @@ sff1_subfile_header = Struct('sff subfile header 1.01',
     ULInt16('index'),
     ULInt8('palette'),
 )
-#    Padding(14),
-#    Padding(768) # pcx image data
-#)
 
 
+sff1_subfile = Struct('sff1 subfile 1.01',
+    sff1_subfile_header,
+    Padding(14),
+    OnDemand(Array(lambda ctx: ctx.length, Byte('data')))
+)
+
+
+sff1_file = Struct('ssf header 1.01',
+    String('signature', 12),
+    ULInt8('verhi'),
+    ULInt8('verlo1'),
+    ULInt8('verlo2'),
+    ULInt8('verlo3'),
+    ULInt32('group_total'),
+    ULInt32('image_total'),
+    ULInt32('next_subfile'),
+    ULInt32('subfile_header_length'),
+    ULInt8('palette type'),
+    ULInt8('reserved0'),
+    ULInt8('reserved1'),
+    ULInt8('reserved2'),
+    Padding(476),
+
+    OnDemandPointer(lambda ctx: ctx.next_subfile,
+        GreedyRange(sff1_subfile),
+    )
+)
 
 
 sff2_sprite = Struct('sprite 2.00',
