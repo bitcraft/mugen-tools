@@ -3,7 +3,11 @@ Windows/OS2 Bitmap (BMP)
 this could have been a perfect show-case file format, but they had to make
 it ugly (all sorts of alignment or
 """
-from construct import *
+
+from construct import Aligned, Switch, Bit, Bitwise, Array, Nibble, Byte
+from construct import Sequence, Adapter, Struct, Const, String, ULInt32
+from construct import Padding, Enum, Alias, Value, ULInt16, OnDemand
+from construct import OnDemandPointer
 
 
 #===============================================================================
