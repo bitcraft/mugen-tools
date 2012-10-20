@@ -18,7 +18,7 @@ public domain
 
 from construct import Struct, ULInt8, ULInt16, ULInt32, String, Padding, \
 Adapter, Sequence, Byte, Enum, OnDemandPointer, Array, Rename, Switch, Pass, \
-Pointer, String, Value, OnDemand, GreedyRange
+Pointer, String, Value, OnDemand, GreedyRange, If, LazyBound, Embed, Field
 
 from StringIO import StringIO
 
@@ -38,7 +38,7 @@ rle8pixel = RunLengthAdapter(
 )
 
 
-sff1_subfile_header = Struct('sff subfile header 1.01',
+sff1_subfile_header = Struct('sff1_subfile',
     ULInt32('next_subfile'),
     ULInt32('length'),
     ULInt16('axisx'),
@@ -47,17 +47,16 @@ sff1_subfile_header = Struct('sff subfile header 1.01',
     ULInt16('imageno'),
     ULInt16('index'),
     ULInt8('palette'),
+    Padding(13),
+)
+
+sff1_subfile = Struct('sff1_subfile',
+    Embed(sff1_subfile_header),
+    String('image_data', lambda ctx: ctx.length - 32),
 )
 
 
-sff1_subfile = Struct('sff1 subfile 1.01',
-    sff1_subfile_header,
-    Padding(14),
-    OnDemand(Array(lambda ctx: ctx.length, Byte('data')))
-)
-
-
-sff1_file = Struct('ssf header 1.01',
+sff1_file = Struct('ssf1_file',
     String('signature', 12),
     ULInt8('verhi'),
     ULInt8('verlo1'),
@@ -68,18 +67,12 @@ sff1_file = Struct('ssf header 1.01',
     ULInt32('next_subfile'),
     ULInt32('subfile_header_length'),
     ULInt8('palette type'),
-    ULInt8('reserved0'),
-    ULInt8('reserved1'),
-    ULInt8('reserved2'),
+    Field('reserved', 3),
     Padding(476),
-
-    OnDemandPointer(lambda ctx: ctx.next_subfile,
-        GreedyRange(sff1_subfile),
-    )
 )
 
 
-sff2_sprite = Struct('sprite 2.00',
+sff2_sprite = Struct('sff2_sprite',
     ULInt16('groupno'),
     ULInt16('itemno'),
     ULInt16('width'),
@@ -128,7 +121,7 @@ sff2_sprite = Struct('sprite 2.00',
 
 
 
-sff2_palette = Struct('palette header 2.00',
+sff2_palette = Struct('sff2_palette_header',
     ULInt16('groupno'),
     ULInt16('itemno'),
     ULInt16('numcols'),
@@ -151,7 +144,7 @@ sff2_palette = Struct('palette header 2.00',
 )
 
 
-sff2_file = Struct('ssf 2.00',
+sff2_file = Struct('ssf2_file',
     String('signature', 12),
     ULInt8('verlo3'),
     ULInt8('verlo2'),

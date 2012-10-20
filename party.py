@@ -79,7 +79,7 @@ import pygame
 import random, subprocess, os, re, collections, shutil, time
 from StringIO import StringIO
 
-from libmugen.config import MUGENConfigParser
+from libmugen.config import MUGENConfig
 from libmugen.utils import get_characters
 from libmugen.character import Character
 from libmugen import sff
@@ -92,6 +92,37 @@ char_dir = "all_chars"
 temp_char_dir = "chars"
 grace_time = 5
 
+
+image_db = {}
+
+
+class MUGENGroup(pygame.sprite.Group):
+    def __init__(self, *sprites):
+        pygame.sprite.Group.__init__(self, *sprites)
+        self.air_queue = []
+
+    def update(self, ticks): 
+        new_queue = []
+        for (parent, air) in self.air_queue:
+            air[4] = air[4] - 1
+            if air[4] > 0:
+                new_queue.append((parent, air))
+            else:
+                parent.apply_air(air)
+
+        self.air_queue = new_queue
+
+
+class MUGENSprite(pygame.sprite.Sprite):
+    def update_image(self, image):
+        self.image = image
+        pos = self.rect.topleft
+        self.rect = pygame.Rect(pos, image.size)
+
+    def apply_air(self, air):
+        g, i, x, y, ttl = air[:5]
+        self.update_image(image_db[(g, i)])
+        self.rect.move_ip((x, y))
 
 
 class VersusScreen(object):
@@ -146,7 +177,7 @@ def load_palette(data, palette_index):
 
 
 # new SFF v2.00
-def grab_image(data, groupno, itemno):
+def load_image(data, groupno, itemno):
     for sprite in data.sprites.read():
         if sprite.groupno == groupno and sprite.itemno == itemno:
             pixels = decode(sprite.compressed_image.value.pixels)
@@ -154,23 +185,31 @@ def grab_image(data, groupno, itemno):
             palette = load_palette(data, sprite.palette_index)
             surface = pygame.image.fromstring(pixels, size, "P")
             surface.set_palette(palette)
-            return surface
+            image_db[(groupno, itemno)] = surface
+            return
 
-    return None    
 
+air_regex = re.compile("(),(),(),(),()[HV],[AS]", re.I)
+
+
+
+"""
+Construct??
+
+DecNumber('groupno'),
+DecNumber('imageno'),
+DecNumber('xaxis'),
+DecNumber('yaxis'),
+DecNumber('ttl'),
+"""
 
 
 def drawVS(surface):
-        def get_value(section, name):
-            for v in section.values:
-                if v.name == name:
-                    return v.value
-
-        mugen_cfg = MUGENConfigParser()
+        mugen_cfg = MUGENConfig()
         mugen_cfg.read(os.path.join('data', 'mugen.cfg'))
         motif_path = mugen_cfg.get('Options', 'motif')
 
-        motif_cfg = MUGENConfigParser()
+        motif_cfg = MUGENConfig()
         motif_cfg.read(motif_path)
 
         spr_filename = motif_cfg.get('Files', 'spr')
@@ -187,22 +226,28 @@ def drawVS(surface):
                 pass
 
         for section in sections:
-            if get_value(section, 'type') == 'normal':
-                spriteno = get_value(section, 'spriteno')
-                start = get_value(section, 'start').split(',')
-                start = [int(i) for i in start]
-                g, i = spriteno.split(',')
-                image = grab_image(spr_data, int(g), int(i))
-                if image:
-                    surface.blit(image, start)
+            try:
+                s_type = section.type
+            except AttributeError:
+                continue
 
-            elif get_value(section, 'type') == 'anim':
-                pass
+            if s_type == 'normal':
+                start = section.start.split(',')
+                start = [int(i) for i in start]
+                g, i = [int(i) for i in section.spriteno.split(',')]
+                load_image(spr_data, g, i)
+                surface.blit(image_db[(g, i)], start)
+
+            elif s_type == 'anim':
+                pass 
 
 
 
 if __name__ == "__main__":
     start_time = None
+
+    group = MUGENGroup()
+
 
     def show_versus(display_time):
         pygame.display.init()
@@ -210,12 +255,16 @@ if __name__ == "__main__":
         pygame.mouse.set_visible(0)
 
         drawVS(screen)
-        pygame.display.flip()
 
         start_time = time.time()
+        clock = pygame.time.Clock()
         while time.time() < start_time + display_time:
+            group.draw(screen)
             pygame.event.pump()
-        pass
+            pygame.display.flip()
+            group.update(1)
+            clock.tick(60)
+
 
         pygame.mouse.set_visible(1)
         #pygame.display.quit()
