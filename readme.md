@@ -11,9 +11,6 @@ Features
 * SSF reading and image extraction
 * frontend with random matchups
 
-NOTE: I just set up this repository this week and the tools are under active
-development (just started Oct. 13th).
-
 
 Rationale
 ---------
