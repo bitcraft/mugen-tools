@@ -49,6 +49,6 @@ This package was developed and tested with:
 python 3.4.3, windows 8.1, pygame 1.9.2
 
 
-all files in this repository are public domain
+all files in this repository are public domain, except for parse.py
 
-leif theden (bitcraft), 2012-2015
+leif theden, 2012-2015

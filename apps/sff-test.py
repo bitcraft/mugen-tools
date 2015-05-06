@@ -1,15 +1,11 @@
-#!/usr/bin/env python
-
 """
 SSF Extract for python
 
 This utility will read a Elecbyte SFF file (version 1.01) and write the
 portrait to the current folder.
 
-** this is just a test of the library, not meant to be a real tool, yet.
 
-
-leif.theden@gmail.com
+leif theden, 2012 - 2015
 public domain
 """
 

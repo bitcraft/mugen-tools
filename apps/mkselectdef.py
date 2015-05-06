@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """
 Mugen select.def file creator with template support.
 
@@ -76,7 +74,7 @@ Python Support
 This script was developed and tested with python 3.4.3 on windows 8.1.
 
 
-leif theden, 2012-2015
+leif theden, 2012 - 2015
 public domain
 """
 from os.path import relpath

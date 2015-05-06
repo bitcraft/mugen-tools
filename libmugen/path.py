@@ -1,3 +1,7 @@
+"""
+leif theden, 2012 - 2015
+public domain
+"""
 import re
 import os
 import glob

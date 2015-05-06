@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """
 MUGEN Random Battle Frontend
 
@@ -68,7 +66,7 @@ This script was developed and tested with:
 python 2.7.3, OS X 10.8.2, pygame 1.9.1
 
 
-leif theden, 2012
+leif theden, 2012 - 2015
 public domain
 """
 

@@ -1,3 +1,7 @@
+"""
+This file is released under the same license as the python library configparser
+leif theden, 2012 - 2015
+"""
 import sys
 import re
 from configparser import (DuplicateOptionError, DuplicateSectionError,

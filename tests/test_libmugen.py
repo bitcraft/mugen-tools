@@ -1,3 +1,10 @@
+"""
+Tests for libmugen
+
+
+leif theden, 2012 - 2015
+public domain
+"""
 from unittest import TestCase, skip
 from libmugen import Character, Stage
 from libmugen.path import gather_required_files
