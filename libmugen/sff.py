@@ -16,11 +16,8 @@ leif theden, 2012
 public domain
 """
 
-from construct import Struct, ULInt8, ULInt16, ULInt32, String, Padding, \
-Adapter, Sequence, Byte, Enum, OnDemandPointer, Array, Rename, Switch, Pass, \
-Pointer, String, Value, OnDemand, GreedyRange, If, LazyBound, Embed, Field
-
-from StringIO import StringIO
+from construct import *
+from io import StringIO
 
 
 class RunLengthAdapter(Adapter):
@@ -97,7 +94,7 @@ sff2_sprite = Struct('sff2_sprite',
     # to a position that is defined in the sff file heading.  that value
     # can either be ldata_offset of tdata_offset, depending on the flags here
     Switch('real_offset', lambda ctx: ctx.flags,
-        {  
+        {
             0: Value('real_offset', lambda ctx: ctx._.ldata_offset)
         },
         Value('real_offset', lambda ctx: ctx._.tdata_offset)
@@ -117,9 +114,6 @@ sff2_sprite = Struct('sff2_sprite',
         )
     )
 )
-
-
-
 
 sff2_palette = Struct('sff2_palette_header',
     ULInt16('groupno'),
@@ -143,7 +137,6 @@ sff2_palette = Struct('sff2_palette_header',
     )
 )
 
-
 sff2_file = Struct('ssf2_file',
     String('signature', 12),
     ULInt8('verlo3'),
@@ -158,14 +151,14 @@ sff2_file = Struct('ssf2_file',
     ULInt8('compatverhi'),
     ULInt32('reserved2'),
     ULInt32('reserved3'),
-    ULInt32('sprite_offset'), 
+    ULInt32('sprite_offset'),
     ULInt32('sprite_total'),
     ULInt32('palette_offset'),
     ULInt32('palette_total'),
-    ULInt32('ldata_offset'), 
-    ULInt32('ldata_length'), 
-    ULInt32('tdata_offset'), 
-    ULInt32('tdata_length'), 
+    ULInt32('ldata_offset'),
+    ULInt32('ldata_length'),
+    ULInt32('tdata_offset'),
+    ULInt32('tdata_length'),
     ULInt32('reserved4'),
     ULInt32('reserved5'),
     Padding(436),

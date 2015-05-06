@@ -13,17 +13,18 @@ leif.theden@gmail.com
 public domain
 """
 
+from io import StringIO
+
 from PIL import Image
-from StringIO import StringIO
 from libmugen import sff
 
-filename = 'sprite.sff'
 
+filename = 'sprite.sff'
 
 fh = open(filename, 'rb')
 
 header = sff.sff1_file.parse(fh.read(512))
-print header
+print(header)
 
 next_subfile = header.next_subfile
 while next_subfile:
@@ -33,7 +34,7 @@ while next_subfile:
     try:
         image = Image.open(StringIO(fh.read(subfile.length)))
     except IOError:
-        print "ioerror", subfile.groupno, subfile.imageno
+        print("ioerror", subfile.groupno, subfile.imageno)
         pass
     else:
-        image.save("g{0}-i{1}.png".format(subfile.groupno, subfile.imageno)) 
+        image.save("g{0}-i{1}.png".format(subfile.groupno, subfile.imageno))

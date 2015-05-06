@@ -15,10 +15,9 @@ This mode is suitable for collections of all kinds of characters, including
 joke characters and cheap ones.  It is a blast to play with lots of friends due
 to the unpredictability and craziness!  Have fun!
 
-
 Because of the instability of MUGEN and the penalty of loading after a crash,
 this script creates custom files for each match so that only 2 characters are
-loaded and crashes are quickly recovered from.  
+loaded and crashes are recovered automatically.
 
 
 Usage
@@ -27,9 +26,7 @@ Usage
 * Copy this file into your MUGEN folder.
 * Rename your chars folder to "all_chars"
 * Create a new folder called "chars"
-
 * Run party.py
-
 
 
 Rationale
@@ -75,23 +72,28 @@ leif theden, 2012
 public domain
 """
 
-import pygame
-import random, subprocess, os, re, collections, shutil, time
-from StringIO import StringIO
+import random
+import subprocess
+import os
+import re
+import shutil
+import time
+from io import StringIO
 
-from libmugen.config import MUGENConfig
+import pygame
+
+# from libmugen.config import MUGENConfig
 from libmugen.utils import get_characters
 from libmugen.character import Character
 from libmugen import sff
 
-from PIL import Image
 
-
-launch_cmd = "wine mugen.exe -p1 {p1} -p2 {p2} -s {stage}"
-char_dir = "all_chars"
-temp_char_dir = "chars"
+base_dir = 'Z:\\Leif\\games\\mugen\\dist\\mugen-1\\'
+# launch_cmd = "wine mugen.exe -p1 {p1} -p2 {p2} -s {stage}"
+launch_cmd = "mugen.exe -p1 {p1} -p2 {p2} -s {stage}"
+char_dir = 'chars'
+temp_char_dir = "temp_chars"
 grace_time = 5
-
 
 image_db = {}
 
@@ -101,7 +103,7 @@ class MUGENGroup(pygame.sprite.Group):
         pygame.sprite.Group.__init__(self, *sprites)
         self.air_queue = []
 
-    def update(self, ticks): 
+    def update(self, ticks):
         new_queue = []
         for (parent, air) in self.air_queue:
             air[4] = air[4] - 1
@@ -129,7 +131,6 @@ class VersusScreen(object):
     pass
 
 
-
 # older SFF v1.01
 def grab_image(filename, groupno, imageno):
     fh = open(filename, 'rb')
@@ -154,7 +155,7 @@ def grab_image(filename, groupno, imageno):
 # decode rle8 data
 def decode(data):
     def _bin(x, width):
-        return ''.join(str((x>>i)&1) for i in xrange(width-1,-1,-1))
+        return ''.join(str((x >> i) & 1) for i in range(width - 1, -1, -1))
 
     image = ""
     data.reverse()
@@ -170,10 +171,11 @@ def decode(data):
 
 
 palettes = {}
+
+
 def load_palette(data, palette_index):
     palette = data.palettes.read()[palette_index]
     return palette.palette_data.read()
-
 
 
 # new SFF v2.00
@@ -191,8 +193,6 @@ def load_image(data, groupno, itemno):
 
 air_regex = re.compile("(),(),(),(),()[HV],[AS]", re.I)
 
-
-
 """
 Construct??
 
@@ -203,51 +203,54 @@ DecNumber('yaxis'),
 DecNumber('ttl'),
 """
 
+import configparser
+MUGENConfig = configparser.ConfigParser
+
 
 def drawVS(surface):
-        mugen_cfg = MUGENConfig()
-        mugen_cfg.read(os.path.join('data', 'mugen.cfg'))
-        motif_path = mugen_cfg.get('Options', 'motif')
+    mugen_cfg = MUGENConfig()
+    mugen_cfg.read(os.path.join('data', 'mugen.cfg'))
+    motif_path = mugen_cfg.get('Options', 'motif')
 
-        motif_cfg = MUGENConfig()
-        motif_cfg.read(motif_path)
+    motif_cfg = MUGENConfig()
+    motif_cfg.read(motif_path)
 
-        spr_filename = motif_cfg.get('Files', 'spr')
-        filename = os.path.join(os.path.dirname(motif_path), spr_filename)
+    spr_filename = motif_cfg.get('Files', 'spr')
+    filename = os.path.join(os.path.dirname(motif_path), spr_filename)
 
-        spr_data = sff.sff2_file.parse_stream(open(filename, 'rb'))
+    spr_data = sff.sff2_file.parse_stream(open(filename, 'rb'))
 
-        sections = []
-        for s in motif_cfg.sections:
-            try:
-                if s.name[:8] == 'VersusBG':
-                    sections.append(s)
-            except:
-                pass
+    sections = []
+    for s in motif_cfg.sections:
+        try:
+            if s.name[:8] == 'VersusBG':
+                sections.append(s)
+        except:
+            pass
 
-        for section in sections:
-            try:
-                s_type = section.type
-            except AttributeError:
-                continue
+    for section in sections:
+        try:
+            s_type = section.type
+        except AttributeError:
+            continue
 
-            if s_type == 'normal':
-                start = section.start.split(',')
-                start = [int(i) for i in start]
-                g, i = [int(i) for i in section.spriteno.split(',')]
-                load_image(spr_data, g, i)
-                surface.blit(image_db[(g, i)], start)
+        if s_type == 'normal':
+            start = section.start.split(',')
+            start = [int(i) for i in start]
+            g, i = [int(i) for i in section.spriteno.split(',')]
+            load_image(spr_data, g, i)
+            surface.blit(image_db[(g, i)], start)
 
-            elif s_type == 'anim':
-                pass 
-
+        elif s_type == 'anim':
+            pass
 
 
 if __name__ == "__main__":
     start_time = None
 
-    group = MUGENGroup()
+    os.chdir(base_dir)
 
+    group = MUGENGroup()
 
     def show_versus(display_time):
         pygame.display.init()
@@ -265,9 +268,8 @@ if __name__ == "__main__":
             group.update(1)
             clock.tick(60)
 
-
         pygame.mouse.set_visible(1)
-        #pygame.display.quit()
+        # pygame.display.quit()
 
     def copy(path, destination):
         new_path = os.path.join(destination, os.path.basename(path))
@@ -286,24 +288,24 @@ if __name__ == "__main__":
         if char.name.find(" ") > -1:
             return True
         return False
-            
+
     def launch_mugen(match):
         start_time = time.time()
         return subprocess.call(launch_cmd.format(**match).split())
 
-
     # get all of our characters (takes a while)
-    print "finding characters..."
+    print("finding characters...")
     characters = list(get_characters(char_dir))
 
     redo = True
-    while redo:
+    players = None
+    while 1:
         players = random.sample(characters, 2)
         if any(map(test_illegal_name, players)):
-            redo = True
+            continue
         else:
-            redo = False
-    
+            break
+
     stage = 'stage0'
 
     copies = []
@@ -318,9 +320,9 @@ if __name__ == "__main__":
 
     show_versus(5)
 
-    #start_time = time.time()
-    #if start_time + grace_time > time.time():
-    #    launch_mugen(match) 
+    # start_time = time.time()
+    # if start_time + grace_time > time.time():
+    #    launch_mugen(match)
 
     # clean up the temporary characters
     [shutil.rmtree(os.path.dirname(i.path)) for i in copies]

@@ -1,0 +1,4 @@
+pillow
+construct
+pygame
+chardet
