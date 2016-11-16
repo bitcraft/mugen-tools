@@ -6,7 +6,7 @@ import collections
 import os
 from os.path import normpath, relpath
 import subprocess
-from apps.char_check import match_timeout
+from apps.config import match_timeout
 
 
 Character = collections.namedtuple('Character', 'name short_name path')

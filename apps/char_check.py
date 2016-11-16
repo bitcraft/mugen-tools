@@ -20,16 +20,15 @@ also, runs multiple copies of winmugen at once.
 leif theden, 2012 - 2015
 public domain
 """
-import os
 import asyncio
 import itertools
-from os.path import join, normpath
+import os
 from concurrent.futures import ThreadPoolExecutor
+from os.path import join, normpath
 
 from libmugen import Match
 from libmugen.path import get_characters, move_character
 from libmugen.path import get_stages, move_stage
-
 
 # On Windows, the default event loop is SelectorEventLoop which does not
 # support subprocesses. ProactorEventLoop should be used instead.
@@ -39,7 +38,6 @@ if os.name == 'nt':
 
 
 max_parallel_matches = 8
-match_timeout = 15
 
 
 def grouper(iterable, n, fillvalue=None):
