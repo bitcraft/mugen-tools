@@ -2,3 +2,4 @@ pillow
 construct
 pygame
 chardet
+# git+https://github.com/construct/construct.git@v2.5.5#egg=construct

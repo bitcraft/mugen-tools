@@ -1,4 +1,21 @@
 """
+    MUGEN Toolkit for python
+    Copyright (C) 2012-2016  Leif Theden
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 Mugen select.def file creator with template support.
 
 
@@ -77,10 +94,11 @@ This script was developed and tested with python 3.4.3 on windows 8.1.
 leif theden, 2012 - 2015
 public domain
 """
-from os.path import relpath
 import re
-from libmugen.path import get_characters, get_stages
+from os.path import relpath
 
+from libmugen.character import gather_characters
+from libmugen.stage import gather_stages
 
 # =============================================================================
 #  OPTIONS
@@ -115,7 +133,7 @@ basename_regex = re.compile(char_dir)
 
 def write_stages(fp, stages_path):
     print("{0}".format(stages_header), file=fp)
-    for stage in get_stages(stages_path):
+    for stage in gather_stages(stages_path):
         path = stage.path
         print("{0}".format(path), file=fp)
 
@@ -141,7 +159,7 @@ if __name__ == "__main__":
     os.chdir(root)
 
     new_select = open(join(root, 'data', 'select.def'), 'w')
-    characters = get_characters(char_dir)
+    characters = gather_characters(char_dir)
     current_section = None
     exhausted_characters = False
     written_characters = False

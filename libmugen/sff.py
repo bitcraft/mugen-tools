@@ -1,5 +1,23 @@
 """
+    MUGEN Toolkit for python
+    Copyright (C) 2012-2016  Leif Theden
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 Python/Pygame MUGEN SSF file support
+====================================
+
 
 This collection of classes is able to load and manipulate MUGEN SSF files in
 python.  PIL is required for many loading the various formats.
@@ -11,30 +29,30 @@ This library is very simple and is not optimized for use in a real-time
 environment.  It exits for very simple uses.  Your mileage may vary.  Parental
 discretion advised.  Not available in all areas.
 
-
-leif theden, 2012 - 2015
-public domain
+leif theden, 2012-2016
 """
 from construct import *
-from io import StringIO
 
 
 class RunLengthAdapter(Adapter):
     def _encode(self, obj, context):
         return len(obj), obj[0]
+
     def _decode(self, obj, context):
         length, value = obj
         return [value] * length
 
+
 rle8pixel = RunLengthAdapter(
-    Sequence("rle8pixel",
+    Sequence(
+        "rle8pixel",
         Byte("length"),
         Byte("value")
     )
 )
 
-
-sff1_subfile_header = Struct('sff1_subfile',
+sff1_subfile_header = Struct(
+    'sff1_subfile',
     ULInt32('next_subfile'),
     ULInt32('length'),
     ULInt16('axisx'),
@@ -46,13 +64,14 @@ sff1_subfile_header = Struct('sff1_subfile',
     Padding(13),
 )
 
-sff1_subfile = Struct('sff1_subfile',
+sff1_subfile = Struct(
+    'sff1_subfile',
     Embed(sff1_subfile_header),
     String('image_data', lambda ctx: ctx.length - 32),
 )
 
-
-sff1_file = Struct('ssf1_file',
+sff1_file = Struct(
+    'ssf1_file',
     String('signature', 12),
     ULInt8('verhi'),
     ULInt8('verlo1'),
@@ -67,8 +86,8 @@ sff1_file = Struct('ssf1_file',
     Padding(476),
 )
 
-
-sff2_sprite = Struct('sff2_sprite',
+sff2_sprite = Struct(
+    'sff2_sprite',
     ULInt16('groupno'),
     ULInt16('itemno'),
     ULInt16('width'),
@@ -76,12 +95,13 @@ sff2_sprite = Struct('sff2_sprite',
     ULInt16('axisx'),
     ULInt16('axisy'),
     ULInt16('index'),
-    Enum(ULInt8('format'),
-        raw = 0,
-        invalid = 1,
-        rle8 = 2,
-        rle5 = 3,
-        lz5 = 4,
+    Enum(ULInt8(
+        'format'),
+        raw=0,
+        invalid=1,
+        rle8=2,
+        rle5=3,
+        lz5=4,
     ),
     ULInt8('colordepth'),
     ULInt32('data_offset'),
@@ -93,28 +113,30 @@ sff2_sprite = Struct('sff2_sprite',
     # to a position that is defined in the sff file heading.  that value
     # can either be ldata_offset of tdata_offset, depending on the flags here
     Switch('real_offset', lambda ctx: ctx.flags,
-        {
-            0: Value('real_offset', lambda ctx: ctx._.ldata_offset)
-        },
-        Value('real_offset', lambda ctx: ctx._.tdata_offset)
-    ),
+           {
+               0: Value('real_offset', lambda ctx: ctx._.ldata_offset)
+           },
+           Value('real_offset', lambda ctx: ctx._.tdata_offset)
+           ),
 
     # pixel data
     OnDemandPointer(lambda ctx: ctx.real_offset + ctx.data_offset,
-        Struct('compressed_image',
-            ULInt32('uncompressed_size'),
-            Switch("pixels", lambda ctx: ctx._.format,
-                {
-                    'invalid' : Pass,
-                    'rle8': Array(lambda ctx: ctx._.data_length - 4, ULInt8('byte'))
-                },
-                default = Pass
-            )
-        )
-    )
+                    Struct(
+                        'compressed_image',
+                        ULInt32('uncompressed_size'),
+                        Switch("pixels", lambda ctx: ctx._.format,
+                               {
+                                   'invalid': Pass,
+                                   'rle8': Array(lambda ctx: ctx._.data_length - 4, ULInt8('byte'))
+                               },
+                               default=Pass
+                               )
+                    )
+                    )
 )
 
-sff2_palette = Struct('sff2_palette_header',
+sff2_palette = Struct(
+    'sff2_palette_header',
     ULInt16('groupno'),
     ULInt16('itemno'),
     ULInt16('numcols'),
@@ -122,21 +144,24 @@ sff2_palette = Struct('sff2_palette_header',
     ULInt32('data_offset'),
     ULInt32('data_length'),
 
-    Rename('palette_data',
+    Rename(
+        'palette_data',
         OnDemandPointer(lambda ctx: ctx._.ldata_offset + ctx.data_offset,
-            Array(lambda ctx: ctx.data_length,
-                Sequence('chunk',
-                    ULInt8('Red'),
-                    ULInt8('Green'),
-                    ULInt8('Blue'),
-                    Padding(1)
-                )
-            )
-        )
+                        Array(lambda ctx: ctx.data_length,
+                              Sequence(
+                                  'chunk',
+                                  ULInt8('Red'),
+                                  ULInt8('Green'),
+                                  ULInt8('Blue'),
+                                  Padding(1)
+                              )
+                              )
+                        )
     )
 )
 
-sff2_file = Struct('ssf2_file',
+sff2_file = Struct(
+    'ssf2_file',
     String('signature', 12),
     ULInt8('verlo3'),
     ULInt8('verlo2'),
@@ -162,14 +187,15 @@ sff2_file = Struct('ssf2_file',
     ULInt32('reserved5'),
     Padding(436),
 
-    Rename('palettes',
+    Rename(
+        'palettes',
         OnDemandPointer(lambda ctx: ctx.palette_offset,
-            Array(lambda ctx: ctx.palette_total, sff2_palette))
+                        Array(lambda ctx: ctx.palette_total, sff2_palette))
     ),
 
-    Rename('sprites',
+    Rename(
+        'sprites',
         OnDemandPointer(lambda ctx: ctx.sprite_offset,
-            Array(lambda ctx: ctx.sprite_total, sff2_sprite)),
+                        Array(lambda ctx: ctx.sprite_total, sff2_sprite)),
     )
 )
-

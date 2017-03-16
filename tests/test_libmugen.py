@@ -6,12 +6,13 @@ leif theden, 2012 - 2015
 public domain
 """
 from unittest import TestCase, skip
-from libmugen import Character, Stage
+
+from libmugen.character import gather_characters
 from libmugen.path import gather_required_files
-from libmugen.path import get_characters
-from libmugen.path import verify_name_matches_def
-from libmugen.path import verify_name
 from libmugen.path import move_stage
+from libmugen.path import verify_name
+from libmugen.path import verify_name_matches_def
+from libmugen.stage import Stage, move_stage
 
 
 class WalkTest(TestCase):
@@ -20,7 +21,7 @@ class WalkTest(TestCase):
     @skip
     def test_get_characters(self):
         characters_path = self.mugen_folder + 'chars\\'
-        for char in get_characters(characters_path):
+        for char in gather_characters(characters_path):
             pass
 
     def test_gather_files(self):

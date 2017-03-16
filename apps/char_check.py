@@ -1,4 +1,20 @@
 """
+    MUGEN Toolkit for python
+    Copyright (C) 2012-2016  Leif Theden
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 see if a character works for a particular version of mugen
 
 this high-tech, patented process uses advanced algorithms and
@@ -7,7 +23,7 @@ here's what it does:
   make list of all characters
   make match with first two characters in list
   if crashes, change player #1 with kfm
-  if crashes, discard player #1
+  if crashes, quarantine player #1
   if doesn't crash, change player #2 with kfm
   if crashes, discard player #2
   if it doesn't crash, then those two players have a problem
@@ -15,20 +31,18 @@ here's what it does:
 
 requires character 'kfm', since it is known to work 100%.
 also, runs multiple copies of winmugen at once.
-
-
-leif theden, 2012 - 2015
-public domain
 """
-import asyncio
-import itertools
 import os
+import asyncio
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
-from os.path import join, normpath
+from os.path import join
 
-from libmugen import Match
-from libmugen.path import get_characters, move_character
-from libmugen.path import get_stages, move_stage
+from libmugen.character import load_character, move_character
+from libmugen.matchprocess import MatchProcess
+from libmugen.path import temp_dir_context
+from libmugen.stage import load_stage, move_stage
+from libmugen.context import MugenRoot
 
 # On Windows, the default event loop is SelectorEventLoop which does not
 # support subprocesses. ProactorEventLoop should be used instead.
@@ -36,103 +50,123 @@ if os.name == 'nt':
     loop_ = asyncio.ProactorEventLoop()
     asyncio.set_event_loop(loop_)
 
-
-max_parallel_matches = 8
-
-
-def grouper(iterable, n, fillvalue=None):
-    """Collect data into fixed-length chunks or blocks"
-    """
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return itertools.zip_longest(*args, fillvalue=fillvalue)
+max_parallel_matches = multiprocessing.cpu_count() // 2
 
 
-@asyncio.coroutine
-def match_in_thread(match):
-    """Run a match to verify game doesn't crash
+async def match_in_thread(match):
+    """ Run a match to verify game doesn't crash
     :param match: TestMatch
     :return: boolean
     """
-    result = yield from loop.run_in_executor(executor, match.run_subprocess)
-    if result == 0:
+    match.start_process()
+    match.wait_until_ready()  # blocking
+    await loop.run_in_executor(executor, match.run_subprocess)
+    if match.returncode == 0:
         return match
     return None
 
 
+def setup_environment(match, root):
+    """ Setup environment for a match
+
+    mugen needs:
+
+    :return:
+    """
+    move_stage(match.stage, root)
+    move_character(match.player1, root)
+    move_character(match.player2, root)
+
+
+def generate_default_character(root):
+    char_root = join(root, 'chars', 'kfm')
+    path = join(char_root, 'kfm.def')
+    return load_character(char_root, path)
+
+
+def generate_default_stage(root):
+    path = join(root, 'stages', 'kfm.def')
+    return load_stage(path)
+
+
 @asyncio.coroutine
-def test_characters():
-    # sem is used to reduce number of running instances of mugen
+def clean_match(player1, player2, stage):
+    with temp_dir_context() as temp_dir:
+        match = MatchProcess(player1, player2, stage=stage)
+        setup_environment(match, temp_dir)
+        yield from match_in_thread(match)
+
+
+def load_characters_lazy(root, player1=None, player2=None, stage=None):
+    """ Load some chars and a stage.  Or not.  Whatev.
+
+    :param root:
+    :param player1:
+    :param player2:
+    :param stage:
+    :return:
+    """
+    default_character = generate_default_character(root)
+    return {'root': root,
+            'player1': player1 if player1 else default_character,
+            'player2': player2 if player2 else default_character,
+            'stage': stage if stage else generate_default_stage(root)}
+
+
+async def start_match(root, char):
+    kwargs = load_characters_lazy(root, player1=char)
+    match = MatchProcess(**kwargs)
+    await match_in_thread(match)
+
+
+async def load_context(root, context_cache="context.cache"):
+    """ Load MugenRoot context, using cache if available.
+
+    :rtype: MugenRoot
+    """
+    import pickle
+
+    try:
+        with open(context_cache, "rb") as fp:
+            context = pickle.load(fp)
+
+    except FileNotFoundError:
+        context = MugenRoot(root)
+        await context.scan_root()
+
+        with open(context_cache, "wb") as fp:
+            pickle.dump(context, fp)
+
+    return context
+
+
+async def test_characters():
+    """
+
+    :return:
+    """
+    root = join('z:\\', 'Dropbox', 'mugen', 'testing-build')
+    context = await load_context(root)
+
     sem = asyncio.Semaphore(max_parallel_matches)
-    characters_path = Match.mugen_folder + 'chars\\'
-    working_path = normpath(join(characters_path, '..\\working_chars\\'))
-    characters_list = get_characters(characters_path)
-    running_tasks = set()
-
-    try:
-        os.mkdir(working_path)
-    except FileExistsError:
-        pass
-
-    def done_cb(f):
-        sem.release()
-        running_tasks.remove(f)
-        match = f.result()
-        if match:
-            move_character(match.player1, working_path)
-
-    for player in list(characters_list):
-        yield from sem
-        match = Match(player1=player)
-        task = asyncio.Task(match_in_thread(match))
-        task.add_done_callback(done_cb)
-        running_tasks.add(task)
-
-        # this sleep is required to ensure the window gets focus.
-        # without gaining focus, the game will never start
-        yield from asyncio.sleep(1.5)
-
-    # wait for all all processes to complete or be killed
-    yield from asyncio.wait(running_tasks)
+    for char in context.characters:
+        await sem.acquire()
+        task = asyncio.ensure_future(start_match(root, char))
+        task.add_done_callback(lambda x: sem.release())
 
 
-@asyncio.coroutine
-def test_stages():
-    # sem is used to reduce number of running instances of mugen
-    semaphore = asyncio.Semaphore(max_parallel_matches)
-    stages_path = Match.mugen_folder + 'stages\\'
-    working_path = Match.mugen_folder + 'working_stages\\'
-    running_tasks = set()
+async def test_stages():
+    pass
 
-    try:
-        os.mkdir(working_path)
-    except FileExistsError:
-        pass
-
-    def done_cb(f):
-        semaphore.release()
-        running_tasks.remove(f)
-        match = f.result()
-        if match:
-            move_stage(match.stage, working_path)
-
-    for stage in list(get_stages(stages_path)):
-        yield from semaphore
-        match = Match(stage=stage)
-        task = asyncio.Task(match_in_thread(match))
-        task.add_done_callback(done_cb)
-        running_tasks.add(task)
-
-        # this sleep is required to ensure the window gets focus.
-        # without gaining focus, the game will never start
-        yield from asyncio.sleep(.5)
-
-    # wait for all all processes to complete or be killed
-    yield from asyncio.wait(running_tasks)
 
 if __name__ == '__main__':
+    import logging
+
+    logging.basicConfig(level=logging.NOTSET)
+
     loop = asyncio.get_event_loop()
+    loop.set_debug(True)
     executor = ThreadPoolExecutor(max_parallel_matches)
     loop.set_default_executor(executor)
-    # loop.run_until_complete(test_characters())
-    loop.run_until_complete(test_stages())
+    loop.run_until_complete(test_characters())
+    # loop.run_until_complete(test_stages())
